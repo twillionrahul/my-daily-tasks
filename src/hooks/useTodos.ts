@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import type { Task } from "@/types/todo";
 
 /** Map a DB row to our Task type */
@@ -25,10 +26,11 @@ function rowToTask(row: {
 
 export function useTodos() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["todos"] });
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["todos"],
+    queryKey: ["todos", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("todos")
@@ -37,13 +39,14 @@ export function useTodos() {
       if (error) throw error;
       return (data ?? []).map(rowToTask);
     },
+    enabled: !!user,
   });
 
   const addTask = useMutation({
     mutationFn: async (text: string) => {
       const { error } = await supabase
         .from("todos")
-        .insert({ title: text });
+        .insert({ title: text, user_id: user!.id });
       if (error) throw error;
     },
     onSuccess: invalidate,
